@@ -1,0 +1,47 @@
+# 📂 ИГНОРИРУЕМ БИНАРНЫЕ ФАЙЛЫ И СБОРКИ
+/bin/
+*.exe
+*.out
+*.test
+
+# 📂 ИГНОРИРУЕМ КЭШ GO
+/go/
+*.sum
+*.mod
+vendor/
+
+# 📂 ИГНОРИРУЕМ СБОРКИ DOCKER
+docker-compose.override.yml
+docker-compose.override.yml
+# Dockerfile
+*.dockerignore
+
+# 📂 ИГНОРИРУЕМ ЛОГИ
+*.log
+logs/
+debug.log
+
+# 📂 ИГНОРИРУЕМ ФАЙЛЫ НАСТРОЕК IDE
+.vscode/
+.idea/
+*.swp
+.DS_Store/
+
+# 📂 ИГНОРИРУЕМ ФАЙЛЫ, СВЯЗАННЫЕ С ТЕСТАМИ И ПОКРЫТИЕМ КОДА
+/coverage/
+coverage.out
+report.html
+*.prof
+*.cov
+
+# 📂 ИГНОРИРУЕМ ЧУВСТВИТЕЛЬНЫЕ ДАННЫЕ (ФАЙЛЫ С ПАРОЛЯМИ И ТОКЕНАМИ)
+.env
+.env.local
+.env.development
+.env.production
+config.yaml
+
+# 📂 ИГНОРИРУЕМ КЭШИ ОТ GOLANGCI-LINT, GOCOVERAGE
+golangci-lint.cache
+golangci-lint.out
+.cache/
