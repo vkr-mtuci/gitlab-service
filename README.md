@@ -66,7 +66,14 @@ go run cmd/main.go
 {
   "environment_name": "staging",
   "deployment_date": "2025-02-06T21:22:14Z",
-  "deploy_status": "success"
+  "ref":"develop",
+  "deploy_status": "success",
+  "sha":"b0f9951803dcd80c141b667acbca9e46bace8acf",
+  "pipeline_id":11111111,
+  "pipeline_url":"https://gitlab.example.ru/group/project/-/pipelines/11111111",
+  "job_id":2222222,
+  "job_url":"https:/gitlab.example.ru/group/project/-/jobs/2222222",
+  "build_version":"1.1.0"
 }
 ```
 
@@ -75,7 +82,7 @@ go run cmd/main.go
 ```json
 {
   "commits": [
-    { "id": "abc123", "message": "Fix bug", "author_name": "John Doe" }
+    { "id":"","created_at":"","message":"","author_name":"","author_email":"","web_url":"","jira_keys":[] }
   ]
 }
 ```
@@ -85,7 +92,7 @@ go run cmd/main.go
 ```json
 {
   "deploy_jobs": [
-    { "id": 7, "status": "success", "web_url": "https://gitlab.com/job/7" }
+    { "id": 7, "status": "success", "finished_at":"0001-01-01T00:00:00Z", "stage":"deploy", "web_url": "https://gitlab.com/job/7", "name":"" }
   ]
 }
 ```

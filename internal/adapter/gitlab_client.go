@@ -145,6 +145,7 @@ func (g *GitLabClient) GetEnvironmentDetails(ctx context.Context, environmentID 
 		JobID:           envDetails.LastDeployment.Deployable.ID,
 		JobURL:          envDetails.LastDeployment.Deployable.WebURL,
 		DeployStatus:    envDetails.LastDeployment.Deployable.Status,
+		BuildCreatedAt:  envDetails.LastDeployment.Deployable.Pipeline.BuildDate,
 	}
 
 	// 🔍 Запрашиваем логи джобы, чтобы найти BUILD_VERSION
@@ -193,98 +194,123 @@ func (g *GitLabClient) GetBuildVersion(ctx context.Context, jobID string) (strin
 	return buildVersion, nil
 }
 
-// GetPreviousPipelineSHA - ищет SHA предыдущей успешной сборки
+// GetPreviousPipelineSHA - ищет SHA предыдущей успешной сборки с пагинацией
 func (g *GitLabClient) GetPreviousPipelineSHA(ctx context.Context, ref, currentSHA string) (string, error) {
-	url := fmt.Sprintf("%s%s%s/pipelines?ref=%s", g.baseURL, g.apiURL, g.projectID, ref)
-	log.Debug().Msgf("📡 Поиск предыдущего пайплайна: ref=%s, URL=%s", ref, url)
-
-	resp, err := g.client.R().
-		SetContext(ctx).
-		Get(url)
-
-	if err != nil {
-		log.Error().Err(err).Msg("❌ Ошибка запроса пайплайнов GitLab")
-		return "", err
+	if g.projectID == "" {
+		return "", fmt.Errorf("❌ projectID не может быть пустым")
 	}
 
-	if resp.StatusCode() != http.StatusOK {
-		return "", ParseGitLabError(resp.Body())
-	}
-
-	var pipelines []Pipeline
-	if err := json.Unmarshal(resp.Body(), &pipelines); err != nil {
-		log.Error().Err(err).Msg("❌ Ошибка парсинга списка пайплайнов GitLab")
-		return "", err
-	}
-
-	var previousSHA string
+	perPage := 100 // Максимальное количество записей на страницу
+	page := 1
 	foundCurrent := false
 
-	for _, pipeline := range pipelines {
-		if pipeline.SHA == currentSHA {
-			foundCurrent = true
-			continue // Пропускаем текущую сборку
+	for {
+		url := fmt.Sprintf("%s%s%s/pipelines?ref=%s&per_page=%d&page=%d",
+			g.baseURL, g.apiURL, g.projectID, ref, perPage, page)
+		log.Debug().Msgf("📡 Запрос пайплайнов (страница %d): URL=%s", page, url)
+
+		resp, err := g.client.R().
+			SetContext(ctx).
+			Get(url)
+
+		if err != nil {
+			log.Error().Err(err).Msg("❌ Ошибка запроса пайплайнов GitLab")
+			return "", err
 		}
-		if foundCurrent && pipeline.SHA != currentSHA {
-			previousSHA = pipeline.SHA
-			break
+
+		if resp.StatusCode() != http.StatusOK {
+			return "", ParseGitLabError(resp.Body())
 		}
+
+		var pipelines []Pipeline
+		if err := json.Unmarshal(resp.Body(), &pipelines); err != nil {
+			log.Error().Err(err).Msg("❌ Ошибка парсинга списка пайплайнов GitLab")
+			return "", err
+		}
+
+		if len(pipelines) == 0 {
+			break // Если больше нет данных, выходим
+		}
+
+		for _, pipeline := range pipelines {
+			if pipeline.SHA == currentSHA {
+				foundCurrent = true
+				continue // Пропускаем текущий пайплайн
+			}
+			if foundCurrent && pipeline.SHA != currentSHA {
+				log.Info().Msgf("✅ Найден предыдущий SHA: %s", pipeline.SHA)
+				return pipeline.SHA, nil
+			}
+		}
+
+		page++ // Запрашиваем следующую страницу
 	}
 
-	if previousSHA == "" {
-		return "", fmt.Errorf("❌ Не удалось найти предыдущий SHA для ref=%s", ref)
-	}
-
-	log.Info().Msgf("✅ Найден предыдущий SHA: %s", previousSHA)
-	return previousSHA, nil
+	return "", fmt.Errorf("❌ Не удалось найти предыдущий SHA для ref=%s", ref)
 }
 
-// GetCommitsBetweenSHAs - получает список коммитов между SHA
+// GetCommitsBetweenSHAs - получает список коммитов между SHA с поддержкой пагинации
 func (g *GitLabClient) GetCommitsBetweenSHAs(ctx context.Context, ref, fromSHA, toSHA string) ([]CommitInfo, error) {
-	url := fmt.Sprintf("%s%s%s/repository/commits?ref_name=%s", g.baseURL, g.apiURL, g.projectID, ref)
-	log.Debug().Msgf("📡 Запрос коммитов между SHA: ref=%s, URL=%s", ref, url)
-
-	resp, err := g.client.R().
-		SetContext(ctx).
-		Get(url)
-
-	if err != nil {
-		log.Error().Err(err).Msg("❌ Ошибка запроса коммитов GitLab")
-		return nil, err
+	if g.projectID == "" {
+		return nil, fmt.Errorf("❌ projectID не может быть пустым")
 	}
 
-	if resp.StatusCode() != http.StatusOK {
-		return nil, ParseGitLabError(resp.Body())
-	}
+	var allCommits []CommitInfo
+	foundSHA := false
+	perPage := 100 // Максимально возможное значение
+	page := 1
 
-	var commits []CommitInfo
-	if err := json.Unmarshal(resp.Body(), &commits); err != nil {
-		log.Error().Err(err).Msg("❌ Ошибка парсинга коммитов GitLab")
-		return nil, err
-	}
+	for {
+		url := fmt.Sprintf("%s%s%s/repository/commits?ref_name=%s&per_page=%d&page=%d",
+			g.baseURL, g.apiURL, g.projectID, ref, perPage, page)
+		log.Debug().Msgf("📡 Запрос коммитов (страница %d): URL=%s", page, url)
 
-	var result []CommitInfo
-	found := false
+		resp, err := g.client.R().
+			SetContext(ctx).
+			Get(url)
 
-	for _, commit := range commits {
-		if commit.ID == toSHA {
-			found = true
+		if err != nil {
+			log.Error().Err(err).Msg("❌ Ошибка запроса коммитов GitLab")
+			return nil, err
 		}
-		if commit.ID == fromSHA {
-			break
+
+		if resp.StatusCode() != http.StatusOK {
+			return nil, ParseGitLabError(resp.Body())
 		}
-		if found {
-			commit.JiraKeys = ExtractJiraKeys([]CommitInfo{commit}, g.jiraProject) // ✅ Заполняем JiraKeys
-			result = append(result, commit)
+
+		var commits []CommitInfo
+		if err := json.Unmarshal(resp.Body(), &commits); err != nil {
+			log.Error().Err(err).Msg("❌ Ошибка парсинга коммитов GitLab")
+			return nil, err
 		}
+
+		if len(commits) == 0 {
+			break // Нет больше данных
+		}
+
+		for _, commit := range commits {
+			if commit.ID == toSHA {
+				foundSHA = true
+			}
+			if commit.ID == fromSHA {
+				log.Info().Msgf("✅ Достигнут fromSHA: %s", fromSHA)
+				return allCommits, nil
+			}
+			if foundSHA {
+				commit.JiraKeys = ExtractJiraKeys([]CommitInfo{commit}, g.jiraProject)
+				allCommits = append(allCommits, commit)
+			}
+		}
+
+		page++ // Переход на следующую страницу
 	}
 
-	if len(result) == 0 {
-		return nil, fmt.Errorf("❌ Не найдено новых коммитов")
+	if len(allCommits) == 0 {
+		return nil, fmt.Errorf("❌ Не найдено новых коммитов между SHA %s и %s", fromSHA, toSHA)
 	}
 
-	log.Info().Msgf("✅ Найдено %d новых коммита(ов)", len(result))
-	return result, nil
+	log.Info().Msgf("✅ Найдено %d новых коммита(ов)", len(allCommits))
+	return allCommits, nil
 }
 
 // ExtractJiraKeys - ищет Jira-ключи в сообщениях коммитов

@@ -4,6 +4,7 @@ import (
 	"os"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v2/middleware/cors"
 	"github.com/rs/zerolog"
 
 	"github.com/vkr-mtuci/gitlab-service/config"
@@ -34,6 +35,13 @@ func main() {
 
 	// Создаем приложение Fiber
 	app := fiber.New()
+
+	// 🔥 Включаем CORS
+	app.Use(cors.New(cors.Config{
+		AllowOrigins: "*", // Или укажи конкретные: "http://localhost:5173"
+		AllowMethods: "GET,POST,PUT,DELETE,OPTIONS",
+		AllowHeaders: "Origin, Content-Type, Accept",
+	}))
 
 	// Проверка запуска сервиса
 	app.Get("/", func(c *fiber.Ctx) error {

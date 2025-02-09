@@ -36,8 +36,9 @@ type EnvironmentDetails struct {
 			WebURL   string `json:"web_url"`
 			Status   string `json:"status"`
 			Pipeline struct {
-				ID     int    `json:"id"`
-				WebURL string `json:"web_url"`
+				ID        int    `json:"id"`
+				WebURL    string `json:"web_url"`
+				BuildDate string `json:"created_at"`
 			} `json:"pipeline"`
 		} `json:"deployable"`
 	} `json:"last_deployment"`
@@ -55,6 +56,7 @@ type DeploymentInfo struct {
 	JobURL          string `json:"job_url"`
 	DeployStatus    string `json:"deploy_status"`
 	BuildVersion    string `json:"build_version"`
+	BuildCreatedAt  string `json:"build_created_at"`
 }
 
 // Pipeline - структура для хранения информации о пайплайнах
